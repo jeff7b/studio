@@ -14,14 +14,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User as UserIcon, Settings, LayoutDashboard } from 'lucide-react';
-import type { User } from '@/types'; // Assuming User type is defined
+import { useSession, signOut } from 'next-auth/react';
+import type { User as AppUserType } from '@/types'; // Using custom User type for structure
 
-interface UserNavProps {
-  user: User; // Define a User type later
-}
+export function UserNav() {
+  const { data: session } = useSession();
 
-export function UserNav({ user }: UserNavProps) {
-  const getInitials = (name: string) => {
+  const getInitials = (name?: string | null) => {
+    if (!name) return 'U';
     const names = name.split(' ');
     let initials = names[0].substring(0, 1).toUpperCase();
     if (names.length > 1) {
@@ -30,22 +30,40 @@ export function UserNav({ user }: UserNavProps) {
     return initials;
   };
 
+  // Adapt session user to the structure expected by DropdownMenuLabel if needed
+  // For now, directly use session.user properties.
+  // The `AppUserType` in props was for mock data, now we use session.
+  const user = session?.user;
+  const appUser: AppUserType | undefined = user ? {
+    id: (user as any).id || 'default-id', // NextAuth user might have id from session callback
+    name: user.name || 'User',
+    email: user.email || 'No email',
+    avatarUrl: user.image || undefined, // Map image to avatarUrl
+    role: 'employee', // Role is not provided by default Azure AD, placeholder
+  } : undefined;
+
+
+  if (!appUser) {
+    // Or some other fallback UI if session is not available/loading
+    return null; 
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-9 w-9 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
-            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+            <AvatarImage src={appUser.avatarUrl} alt={appUser.name} data-ai-hint="user avatar" />
+            <AvatarFallback>{getInitials(appUser.name)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-sm font-medium leading-none">{appUser.name}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
+              {appUser.email}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -69,7 +87,7 @@ export function UserNav({ user }: UserNavProps) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => { /* Handle logout */ console.log('Logout clicked'); }}>
+        <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/' })}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
           <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
