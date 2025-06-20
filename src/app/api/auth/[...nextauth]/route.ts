@@ -5,14 +5,14 @@ import type { NextAuthOptions } from 'next-auth';
 export const authOptions: NextAuthOptions = {
   providers: [
     AzureADProvider({
-      clientId: process.env.AUTH_AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AUTH_AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AUTH_AZURE_AD_TENANT_ID!,
+      clientId: process.env.AUTH_AZURE_AD_CLIENT_ID || "",
+      clientSecret: process.env.AUTH_AZURE_AD_CLIENT_SECRET || "",
+      tenantId: process.env.AUTH_AZURE_AD_TENANT_ID || "",
       // Optionally, you can define the scope:
       // authorization: { params: { scope: "openid profile email User.Read" } },
     }),
   ],
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET || "",
   callbacks: {
     async jwt({ token, account, profile }) {
       // Persist the OAuth access_token to the token right after signin
