@@ -20,10 +20,12 @@ export async function getLatestQuestionnairesAction(): Promise<Questionnaire[]> 
     // Firestore timestamps need to be converted to serializable format (ISO string)
     const allQuestionnaires: Questionnaire[] = snapshot.docs.map(doc => {
       const data = doc.data();
+      const createdAt = data.createdAt as Timestamp | undefined;
+      const updatedAt = data.updatedAt as Timestamp | undefined;
       return {
         ...data,
-        createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-        updatedAt: (data.updatedAt as Timestamp).toDate().toISOString(),
+        createdAt: createdAt ? createdAt.toDate().toISOString() : new Date().toISOString(),
+        updatedAt: updatedAt ? updatedAt.toDate().toISOString() : new Date().toISOString(),
       } as Questionnaire;
     });
 
@@ -70,10 +72,12 @@ export async function getActiveQuestionnairesAction(type: 'self' | 'peer'): Prom
 
       return snapshot.docs.map(doc => {
           const data = doc.data();
+          const createdAt = data.createdAt as Timestamp | undefined;
+          const updatedAt = data.updatedAt as Timestamp | undefined;
           return {
             ...data,
-            createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-            updatedAt: (data.updatedAt as Timestamp).toDate().toISOString(),
+            createdAt: createdAt ? createdAt.toDate().toISOString() : new Date().toISOString(),
+            updatedAt: updatedAt ? updatedAt.toDate().toISOString() : new Date().toISOString(),
           } as Questionnaire;
       });
     } catch (error: any) {
