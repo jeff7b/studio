@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -27,7 +28,6 @@ export interface Review {
   reviewer?: User; // Person writing the review (relevant for peer reviews)
   questionnaireId: string;
   questions: Question[];
-  answers: Answer[];
   createdAt: string;
   updatedAt: string;
 }
@@ -46,22 +46,24 @@ export interface TeamMemberFeedback {
 }
 
 export interface Questionnaire {
-  id:string;
+  id: string; // Unique ID for this specific version
+  templateId: string; // Groups all versions of a questionnaire
+  version: number;
   name: string;
   description?: string;
   type: 'self' | 'peer';
   questions: Question[];
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  isActive: boolean; // True if this is the latest, assignable version
+  createdAt: string; // ISO string format
+  updatedAt: string; // ISO string format
 }
 
 export interface PeerReviewAssignment {
-  id: string;
+  id:string;
   reviewCycleId: string; // Optional: if reviews are grouped into cycles
   reviewee: User;
   reviewer: User;
-  questionnaireId: string;
+  questionnaireId: string; // The ID of the specific Questionnaire document (version)
   status: 'pending' | 'in_progress' | 'completed' | 'declined';
   dueDate: string;
   reviewId?: string; // Link to the actual review once submitted

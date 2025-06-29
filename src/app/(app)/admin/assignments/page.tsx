@@ -1,8 +1,9 @@
+
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +23,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from '@/lib/utils';
+import { getActiveQuestionnairesAction } from '../questionnaires/actions';
+import { useToast } from '@/hooks/use-toast';
 
 // Mock Data
 const mockUsers: User[] = [
@@ -32,23 +36,18 @@ const mockUsers: User[] = [
   { id: 'u5', name: 'Edward Scissorhands', email: 'edward@example.com', role: 'employee', avatarUrl: 'https://placehold.co/40x40.png?text=ES' },
 ];
 
-const mockQuestionnaires: Questionnaire[] = [
-  { id: 'qnn2', name: 'Engineering Peer Feedback', type: 'peer', isActive:true, questions:[], createdAt:'', updatedAt:'' },
-  { id: 'qnn_gen', name: 'General Peer Feedback', type: 'peer', isActive:true, questions:[], createdAt:'', updatedAt:'' },
-];
-
 const mockAssignments: PeerReviewAssignment[] = [
   { 
     id: 'assign1', reviewCycleId: 'cycle1', reviewee: mockUsers[0], reviewer: mockUsers[1], 
-    questionnaireId: 'qnn2', status: 'pending', dueDate: '2024-10-15' 
+    questionnaireId: 'qnn2-v1', status: 'pending', dueDate: '2024-10-15' 
   },
   { 
     id: 'assign2', reviewCycleId: 'cycle1', reviewee: mockUsers[0], reviewer: mockUsers[2], 
-    questionnaireId: 'qnn2', status: 'in_progress', dueDate: '2024-10-15' 
+    questionnaireId: 'qnn2-v1', status: 'in_progress', dueDate: '2024-10-15' 
   },
   { 
     id: 'assign3', reviewCycleId: 'cycle1', reviewee: mockUsers[1], reviewer: mockUsers[0], 
-    questionnaireId: 'qnn_gen', status: 'completed', dueDate: '2024-09-30' 
+    questionnaireId: 'qnn_gen-v2', status: 'completed', dueDate: '2024-09-30' 
   },
 ];
 
@@ -118,11 +117,15 @@ const AssignmentForm = ({ assignment, users, questionnaires, onSave, onCancel }:
   const [reviewer, setReviewer] = useState<User | undefined>(assignment?.reviewer);
   const [questionnaireId, setQuestionnaireId] = useState<string | undefined>(assignment?.questionnaireId);
   const [dueDate, setDueDate] = useState<Date | undefined>(assignment ? new Date(assignment.dueDate) : undefined);
+  const { toast } = useToast();
 
   const handleSubmit = () => {
     if (!reviewee || !reviewer || !questionnaireId || !dueDate) {
-      // Add validation feedback, e.g. toast
-      alert("Please fill all fields.");
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please fill out all fields to create an assignment.",
+      });
       return;
     }
     onSave({
@@ -158,8 +161,8 @@ const AssignmentForm = ({ assignment, users, questionnaires, onSave, onCancel }:
                         <SelectValue placeholder="Select questionnaire..." />
                     </SelectTrigger>
                     <SelectContent>
-                        {questionnaires.filter(q => q.type === 'peer' && q.isActive).map(q => (
-                            <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                        {questionnaires.map(q => (
+                            <SelectItem key={q.id} value={q.id}>{q.name} (v{q.version})</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -194,16 +197,38 @@ const AssignmentForm = ({ assignment, users, questionnaires, onSave, onCancel }:
 
 export default function AdminAssignmentsPage() {
   const [assignments, setAssignments] = useState<PeerReviewAssignment[]>(mockAssignments);
+  const [activeQuestionnaires, setActiveQuestionnaires] = useState<Questionnaire[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<PeerReviewAssignment | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchQuestionnaires = async () => {
+      try {
+        const peerQuestionnaires = await getActiveQuestionnairesAction('peer');
+        setActiveQuestionnaires(peerQuestionnaires);
+      } catch (error) {
+        console.error("Failed to fetch active peer questionnaires", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not load questionnaires for assignments."
+        });
+      }
+    };
+    fetchQuestionnaires();
+  }, [toast]);
+  
 
   const handleSaveAssignment = (data: Omit<PeerReviewAssignment, 'id'>) => {
+    // In a real app, this would be a server action to save to Firestore
     if (editingAssignment) {
       setAssignments(prev => prev.map(item => item.id === editingAssignment.id ? { ...item, ...data } : item));
     } else {
       setAssignments(prev => [...prev, { ...data, id: Date.now().toString() }]);
     }
+    toast({ title: "Success", description: "Assignment saved." });
     setIsFormOpen(false);
     setEditingAssignment(undefined);
   };
@@ -252,7 +277,7 @@ export default function AdminAssignmentsPage() {
          <AssignmentForm 
             assignment={editingAssignment}
             users={mockUsers}
-            questionnaires={mockQuestionnaires}
+            questionnaires={activeQuestionnaires}
             onSave={handleSaveAssignment} 
             onCancel={() => { setIsFormOpen(false); setEditingAssignment(undefined); }}
         />
@@ -266,7 +291,6 @@ export default function AdminAssignmentsPage() {
                     value={searchTerm} 
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="max-w-sm mt-2"
-                    icon={<Search className="h-4 w-4 text-muted-foreground" />}
                 />
             </CardHeader>
             <CardContent>
@@ -299,7 +323,7 @@ export default function AdminAssignmentsPage() {
                             </Avatar>
                             {a.reviewer.name}
                         </TableCell>
-                        <TableCell>{mockQuestionnaires.find(q => q.id === a.questionnaireId)?.name || 'N/A'}</TableCell>
+                        <TableCell>{activeQuestionnaires.find(q => q.id === a.questionnaireId)?.name || a.questionnaireId}</TableCell>
                         <TableCell>{format(new Date(a.dueDate), "MMM dd, yyyy")}</TableCell>
                         <TableCell className="text-center">
                             <Badge variant={getStatusBadgeVariant(a.status)} className={cn("capitalize", a.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' : '')}>

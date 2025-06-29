@@ -1,13 +1,14 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Eye, FileText, Users, X, GripVertical } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, FileText, Users, X, GripVertical, Loader2 } from 'lucide-react';
 import type { Questionnaire, Question } from '@/types';
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -19,36 +20,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getLatestQuestionnairesAction, saveQuestionnaireAction, deactivateQuestionnaireTemplateAction } from './actions';
+import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
-// Mock Data
-const mockQuestionnaires: Questionnaire[] = [
-  { 
-    id: 'qnn1', name: 'Standard Self-Review Q3', type: 'self', isActive: true,
-    questions: [
-      { id: 'sq1', text: 'What were your major accomplishments?', order: 1 },
-      { id: 'sq2', text: 'What challenges did you face?', order: 2 },
-    ],
-    description: 'Quarterly self-assessment for all employees.',
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  },
-  { 
-    id: 'qnn2', name: 'Engineering Peer Feedback', type: 'peer', isActive: true,
-    questions: [
-      { id: 'pq1', text: 'How well did this peer collaborate?', order: 1 },
-      { id: 'pq2', text: 'Comment on their technical contributions.', order: 2 },
-    ],
-    description: 'Peer feedback specific to engineering roles.',
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  },
-  { 
-    id: 'qnn3', name: 'Leadership Self-Assessment (Draft)', type: 'self', isActive: false,
-    questions: [],
-    description: 'Self-assessment for team leads and managers.',
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  },
-];
-
-const emptyQuestionnaire: Omit<Questionnaire, 'id' | 'createdAt' | 'updatedAt'> = {
+const emptyQuestionnaire: Partial<Questionnaire> = {
   name: '',
   description: '',
   type: 'self',
@@ -56,8 +32,18 @@ const emptyQuestionnaire: Omit<Questionnaire, 'id' | 'createdAt' | 'updatedAt'> 
   isActive: true,
 };
 
-const QuestionnaireForm = ({ questionnaire, onSave, onCancel }: { questionnaire?: Questionnaire, onSave: (q: Questionnaire) => void, onCancel: () => void }) => {
-  const [formData, setFormData] = useState<Omit<Questionnaire, 'id' | 'createdAt' | 'updatedAt'>>(
+const QuestionnaireForm = ({ 
+  questionnaire, 
+  onSave, 
+  onCancel,
+  isSaving
+}: { 
+  questionnaire?: Partial<Questionnaire>, 
+  onSave: (q: Partial<Questionnaire>) => void, 
+  onCancel: () => void,
+  isSaving: boolean
+}) => {
+  const [formData, setFormData] = useState<Partial<Questionnaire>>(
     questionnaire ? { ...questionnaire } : { ...emptyQuestionnaire }
   );
 
@@ -66,7 +52,7 @@ const QuestionnaireForm = ({ questionnaire, onSave, onCancel }: { questionnaire?
   };
 
   const handleQuestionChange = (index: number, text: string) => {
-    const newQuestions = [...formData.questions];
+    const newQuestions = [...(formData.questions || [])];
     newQuestions[index].text = text;
     setFormData(prev => ({ ...prev, questions: newQuestions }));
   };
@@ -74,12 +60,12 @@ const QuestionnaireForm = ({ questionnaire, onSave, onCancel }: { questionnaire?
   const addQuestion = () => {
     setFormData(prev => ({
       ...prev,
-      questions: [...prev.questions, { id: Date.now().toString(), text: '', order: prev.questions.length + 1 }]
+      questions: [...(prev.questions || []), { id: Date.now().toString(), text: '', order: (prev.questions?.length || 0) + 1 }]
     }));
   };
 
   const removeQuestion = (index: number) => {
-    if (formData.questions.length <= 1) return; // Keep at least one question
+    if (!formData.questions || formData.questions.length <= 1) return; // Keep at least one question
     const newQuestions = formData.questions.filter((_, i) => i !== index);
     // Re-order
     newQuestions.forEach((q, i) => q.order = i + 1);
@@ -87,18 +73,20 @@ const QuestionnaireForm = ({ questionnaire, onSave, onCancel }: { questionnaire?
   };
   
   const handleSave = () => {
-    const finalData: Questionnaire = questionnaire 
-      ? { ...formData, id: questionnaire.id, createdAt: questionnaire.createdAt, updatedAt: new Date().toISOString() }
-      : { ...formData, id: Date.now().toString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    onSave(finalData);
+    if(!formData.name || formData.name.trim() === '') {
+      // Add more robust validation as needed
+      alert('Questionnaire name is required.');
+      return;
+    }
+    onSave(formData);
   };
 
   return (
     <DialogContent className="sm:max-w-[625px] max-h-[90vh] flex flex-col">
       <DialogHeader>
-        <DialogTitle>{questionnaire ? 'Edit' : 'Create New'} Questionnaire</DialogTitle>
+        <DialogTitle>{formData.id ? 'Edit' : 'Create New'} Questionnaire</DialogTitle>
         <DialogDescription>
-          {questionnaire ? 'Modify the details of this questionnaire.' : 'Define a new set of questions for reviews.'}
+          {formData.id ? 'Modify the details and create a new version of this questionnaire.' : 'Define a new set of questions for reviews.'}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4 flex-1 overflow-y-auto pr-2">
@@ -124,16 +112,18 @@ const QuestionnaireForm = ({ questionnaire, onSave, onCancel }: { questionnaire?
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="isActive" className="text-right">Active</Label>
-          <Switch 
-            id="isActive" 
-            checked={formData.isActive} 
-            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))} 
-            className="col-span-3" 
-          />
+          <div className="col-span-3 flex items-center space-x-2">
+             <Switch 
+                id="isActive" 
+                checked={formData.isActive} 
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+              />
+              <span className="text-xs text-muted-foreground">Controls if this can be used for new assignments.</span>
+          </div>
         </div>
         <div className="col-span-4 space-y-3 mt-2">
           <Label className="text-base font-medium">Questions</Label>
-          {formData.questions.map((q, index) => (
+          {formData.questions?.map((q, index) => (
             <div key={q.id || index} className="flex items-start gap-2">
               <Button variant="ghost" size="icon" className="mt-1 cursor-grab" disabled><GripVertical className="h-4 w-4 text-muted-foreground" /></Button>
               <Textarea
@@ -143,7 +133,7 @@ const QuestionnaireForm = ({ questionnaire, onSave, onCancel }: { questionnaire?
                 rows={2}
                 className="flex-1"
               />
-              <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)} disabled={formData.questions.length <= 1}>
+              <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)} disabled={(formData.questions?.length || 0) <= 1}>
                 <X className="h-4 w-4 text-destructive" />
               </Button>
             </div>
@@ -154,8 +144,11 @@ const QuestionnaireForm = ({ questionnaire, onSave, onCancel }: { questionnaire?
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={handleSave}>Save Questionnaire</Button>
+        <Button variant="outline" onClick={onCancel} disabled={isSaving}>Cancel</Button>
+        <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSaving ? 'Saving...' : 'Save Questionnaire'}
+        </Button>
       </DialogFooter>
     </DialogContent>
   );
@@ -163,18 +156,55 @@ const QuestionnaireForm = ({ questionnaire, onSave, onCancel }: { questionnaire?
 
 
 export default function AdminQuestionnairesPage() {
-  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>(mockQuestionnaires);
+  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingQuestionnaire, setEditingQuestionnaire] = useState<Questionnaire | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editingQuestionnaire, setEditingQuestionnaire] = useState<Partial<Questionnaire> | undefined>(undefined);
+  const { toast } = useToast();
 
-  const handleSaveQuestionnaire = (q: Questionnaire) => {
-    if (editingQuestionnaire) {
-      setQuestionnaires(prev => prev.map(item => item.id === q.id ? q : item));
-    } else {
-      setQuestionnaires(prev => [...prev, { ...q, id: Date.now().toString() }]);
+  useEffect(() => {
+    fetchQuestionnaires();
+  }, []);
+
+  const fetchQuestionnaires = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getLatestQuestionnairesAction();
+      setQuestionnaires(data);
+    } catch (error) {
+      console.error("Failed to fetch questionnaires:", error);
+      toast({
+        variant: "destructive",
+        title: "Error fetching questionnaires",
+        description: "Could not load data from the server. Please try again later.",
+      });
+    } finally {
+      setIsLoading(false);
     }
-    setIsFormOpen(false);
-    setEditingQuestionnaire(undefined);
+  };
+
+  const handleSaveQuestionnaire = async (q: Partial<Questionnaire>) => {
+    try {
+      setIsSaving(true);
+      await saveQuestionnaireAction(q as any);
+      toast({
+        title: "Success",
+        description: "Questionnaire saved successfully.",
+      });
+      setIsFormOpen(false);
+      setEditingQuestionnaire(undefined);
+      fetchQuestionnaires(); // Refresh the list
+    } catch (error) {
+       console.error("Failed to save questionnaire:", error);
+       toast({
+        variant: "destructive",
+        title: "Error saving questionnaire",
+        description: "An error occurred while saving. Please try again.",
+      });
+    } finally {
+       setIsSaving(false);
+    }
   };
   
   const handleAddNew = () => {
@@ -187,9 +217,27 @@ export default function AdminQuestionnairesPage() {
     setIsFormOpen(true);
   };
   
-  const handleDelete = (id: string) => {
-    // Add confirmation dialog here
-    setQuestionnaires(prev => prev.filter(item => item.id !== id));
+  const handleDelete = async (templateId: string) => {
+    try {
+      await deactivateQuestionnaireTemplateAction(templateId);
+      toast({
+        title: "Questionnaire Deactivated",
+        description: "The questionnaire template has been deactivated.",
+      });
+      fetchQuestionnaires();
+    } catch (error) {
+      console.error("Failed to deactivate questionnaire:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not deactivate the questionnaire.",
+      });
+    }
+  };
+  
+  const closeForm = () => {
+    setIsFormOpen(false); 
+    setEditingQuestionnaire(undefined);
   };
 
   return (
@@ -202,11 +250,12 @@ export default function AdminQuestionnairesPage() {
               <PlusCircle className="mr-2 h-5 w-5" /> Create New Questionnaire
             </Button>
           </DialogTrigger>
-          {isFormOpen && ( /* Conditionally render form to reset state */
+          {isFormOpen && (
             <QuestionnaireForm 
               questionnaire={editingQuestionnaire} 
               onSave={handleSaveQuestionnaire} 
-              onCancel={() => { setIsFormOpen(false); setEditingQuestionnaire(undefined); }} 
+              onCancel={closeForm} 
+              isSaving={isSaving}
             />
           )}
         </Dialog>
@@ -215,16 +264,21 @@ export default function AdminQuestionnairesPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Questionnaire Templates</CardTitle>
-          <CardDescription>Define and manage the sets of questions used for self and peer reviews.</CardDescription>
+          <CardDescription>Define and manage the sets of questions used for self and peer reviews. Editing creates a new version.</CardDescription>
         </CardHeader>
         <CardContent>
-          {questionnaires.length > 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : questionnaires.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead className="text-center">Questions</TableHead>
+                  <TableHead className="text-center">Version</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -240,18 +294,35 @@ export default function AdminQuestionnairesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">{q.questions.length}</TableCell>
+                    <TableCell className="text-center">v{q.version}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={q.isActive ? 'default' : 'outline'} className={q.isActive ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
-                        {q.isActive ? 'Active' : 'Inactive'}
+                        {q.isActive ? 'Active' : 'Archived'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} title="Edit">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} title="Edit (creates new version)">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q.id)} title="Delete">
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" title="Deactivate Template">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                              <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                      This will deactivate all versions of this questionnaire template. You won't be able to use it for new assignments. This action cannot be undone.
+                                  </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(q.templateId)}>Deactivate</AlertDialogAction>
+                              </AlertDialogFooter>
+                          </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
