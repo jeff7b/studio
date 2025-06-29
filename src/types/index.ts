@@ -59,12 +59,29 @@ export interface Questionnaire {
 }
 
 export interface PeerReviewAssignment {
-  id:string;
-  reviewCycleId: string; // Optional: if reviews are grouped into cycles
-  reviewee: User;
-  reviewer: User;
-  questionnaireId: string; // The ID of the specific Questionnaire document (version)
+  id: string;
+  reviewCycleId: string;
+  revieweeId: string;
+  revieweeName: string;
+  revieweeAvatarUrl?: string;
+  reviewerId: string;
+  reviewerName: string;
+  reviewerAvatarUrl?: string;
+  questionnaireId: string;
   status: 'pending' | 'in_progress' | 'completed' | 'declined';
-  dueDate: string;
+  dueDate: string; // ISO string format
   reviewId?: string; // Link to the actual review once submitted
+  createdAt: string; // ISO string format
+  updatedAt: string; // ISO string format
+}
+
+export interface ReviewCycle {
+  id: string;
+  name: string;
+  startDate: string; // ISO string format
+  endDate: string; // ISO string format
+  participantIds: string[]; // Array of user IDs
+  status: 'draft' | 'active' | 'closed';
+  createdAt: string; // ISO string format
+  updatedAt: string; // ISO string format
 }

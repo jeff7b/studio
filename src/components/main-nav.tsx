@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Home, Users, ScrollText, UserCheck, UserCog } from "lucide-react";
+import { Home, Users, ScrollText, UserCheck, UserCog, CalendarClock } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Tooltip,
@@ -25,6 +25,7 @@ const navLinks: NavLink[] = [
   { href: "/dashboard", label: "My Dashboard", icon: <Home className="h-5 w-5" />, roles: ['employee', 'team_leader', 'admin'] },
   { href: "/team-dashboard", label: "Team Dashboard", icon: <Users className="h-5 w-5" />, roles: ['team_leader', 'admin'] },
   { href: "/admin/staff", label: "Manage Staff", icon: <UserCog className="h-5 w-5" />, roles: ['admin'] },
+  { href: "/admin/review-cycles", label: "Review Cycles", icon: <CalendarClock className="h-5 w-5" />, roles: ['admin'] },
   { href: "/admin/questionnaires", label: "Questionnaires", icon: <ScrollText className="h-5 w-5" />, roles: ['admin'] },
   { href: "/admin/assignments", label: "Assignments", icon: <UserCheck className="h-5 w-5" />, roles: ['admin'] },
 ];
