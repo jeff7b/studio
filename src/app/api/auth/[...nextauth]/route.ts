@@ -39,6 +39,7 @@ if (useStubAuth) {
 
 export const authOptions: NextAuthOptions = {
   providers,
+  debug: true,
   secret: process.env.AUTH_SECRET || '',
   ...(useStubAuth && { trustHost: true }),
   callbacks: {
