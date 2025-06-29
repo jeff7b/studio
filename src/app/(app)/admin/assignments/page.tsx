@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlusCircle, Edit, Trash2, UserCheck, CalendarIcon, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, UserCheck, CalendarIcon, ChevronsUpDown, Loader2, Check } from 'lucide-react';
 import type { User, PeerReviewAssignment, Questionnaire } from '@/types';
 import { format } from 'date-fns';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -225,7 +225,8 @@ export default function AdminAssignmentsPage() {
   const handleSaveAssignment = (data: Omit<PeerReviewAssignment, 'id'>) => {
     // In a real app, this would be a server action to save to Firestore
     if (editingAssignment) {
-      setAssignments(prev => prev.map(item => item.id === editingAssignment.id ? { ...item, ...data } as PeerReviewAssignment : item));
+      const updatedAssignment = { ...editingAssignment, ...data } as PeerReviewAssignment;
+      setAssignments(prev => prev.map(item => item.id === editingAssignment.id ? updatedAssignment : item));
     } else {
       setAssignments(prev => [...prev, { ...data, id: `assign_${Date.now()}` }]);
     }
