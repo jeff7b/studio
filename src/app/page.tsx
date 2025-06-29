@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -14,25 +15,34 @@ export default function LoginPage() {
   const useStubAuth = process.env.NEXT_PUBLIC_STUB_AUTH === 'true';
 
   useEffect(() => {
+    // If we are using stub auth and the user is not authenticated yet,
+    // automatically trigger the sign-in process.
+    if (useStubAuth && status === 'unauthenticated') {
+      signIn('credentials', { callbackUrl: '/dashboard' });
+      return; // Early return to avoid other logic paths in this effect
+    }
+
+    // If the user is authenticated (either through stub or real auth),
+    // redirect them to the dashboard.
     if (status === 'authenticated') {
       router.push('/dashboard');
     }
-  }, [session, status, router]);
+  }, [session, status, router, useStubAuth]);
 
-  if (status === 'loading' || status === 'authenticated') {
+  // While signing in or redirecting, show a loading message.
+  if (status === 'loading' || status === 'authenticated' || (useStubAuth && status === 'unauthenticated')) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <p>Loading session or redirecting...</p>
+        <p>Signing in or redirecting...</p>
       </div>
     );
   }
 
+  // This part of the component will now only be rendered for the real (non-stub) auth flow
+  // when the user is unauthenticated.
   const handleLogin = () => {
-    if (useStubAuth) {
-      signIn('credentials', { callbackUrl: '/dashboard' });
-    } else {
-      signIn('azure-ad', { callbackUrl: '/dashboard' });
-    }
+    // This is now only for the Azure AD flow since stub auth is automatic
+    signIn('azure-ad', { callbackUrl: '/dashboard' });
   };
 
   return (
@@ -45,15 +55,13 @@ export default function LoginPage() {
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-3xl font-bold font-headline">Welcome</CardTitle>
           <CardDescription>
-            {useStubAuth
-              ? 'Click below to sign in with a mock user'
-              : 'Sign in with your Office 365 account to continue'}
+            Sign in with your Office 365 account to continue
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <Button onClick={handleLogin} className="w-full text-lg py-6">
             <LogIn className="mr-2 h-5 w-5" />
-            {useStubAuth ? 'Sign in as Local Developer' : 'Sign in with Office 365'}
+            Sign in with Office 365
           </Button>
         </CardContent>
         <CardFooter className="flex flex-col items-center space-y-2">
