@@ -1,45 +1,73 @@
 import NextAuth from 'next-auth';
 import AzureADProvider from 'next-auth/providers/azure-ad';
-import type { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import type { NextAuthOptions, Provider } from 'next-auth';
+
+const useStubAuth = process.env.NEXT_PUBLIC_STUB_AUTH === 'true';
+
+const providers: Provider[] = [];
+
+if (useStubAuth) {
+  providers.push(
+    CredentialsProvider({
+      name: 'Stubbed Login',
+      // We don't need a credentials form, as we will auto-login with a button click.
+      credentials: {},
+      async authorize(_credentials) {
+        console.log('Authenticating with stub user.');
+        // This is where you define your mock user data.
+        const user = {
+          id: 'stub-user-id-123', // This will be mapped to token.sub
+          name: 'Local Developer',
+          email: 'dev@example.com',
+          image: 'https://placehold.co/100x100.png?text=LD',
+        };
+        // Any object returned will be saved in `user` property of the JWT
+        return user;
+      },
+    })
+  );
+} else {
+  providers.push(
+    AzureADProvider({
+      clientId: process.env.AUTH_AZURE_AD_CLIENT_ID || '',
+      clientSecret: process.env.AUTH_AZURE_AD_CLIENT_SECRET || '',
+      tenantId: process.env.AUTH_AZURE_AD_TENANT_ID || '',
+    })
+  );
+}
 
 export const authOptions: NextAuthOptions = {
-  providers: [
-    AzureADProvider({
-      clientId: process.env.AUTH_AZURE_AD_CLIENT_ID || "",
-      clientSecret: process.env.AUTH_AZURE_AD_CLIENT_SECRET || "",
-      tenantId: process.env.AUTH_AZURE_AD_TENANT_ID || "",
-      // Optionally, you can define the scope:
-      // authorization: { params: { scope: "openid profile email User.Read" } },
-    }),
-  ],
-  secret: process.env.AUTH_SECRET || "",
+  providers,
+  secret: process.env.AUTH_SECRET || '',
   callbacks: {
-    async jwt({ token, account, profile }) {
-      // Persist the OAuth access_token to the token right after signin
-      if (account) {
-        token.accessToken = account.access_token;
-        token.id = profile?.oid; // OID is often used as a unique identifier for Azure AD users
+    async jwt({ token, user, account, profile }) {
+      // This block runs only on initial sign-in
+      if (account && user) {
+        // For Azure AD, add access token and user's OID to the token
+        if (!useStubAuth && profile) {
+          token.accessToken = account.access_token;
+          token.id = profile.oid;
+        }
+        // For stubbed auth, add the user's ID from the authorize function
+        if (useStubAuth) {
+          token.id = user.id;
+        }
       }
       return token;
     },
     async session({ session, token }) {
-      // Send properties to the client, like an access_token and user id from a provider.
+      // This block runs for every session access
+      // Add the custom properties from the token to the session object
       if (token.accessToken) {
         (session as any).accessToken = token.accessToken;
       }
       if (token.id && session.user) {
         (session.user as any).id = token.id;
       }
-      // Note: To add custom properties like 'role', you'd typically fetch them here
-      // using the accessToken or id, and add them to the session.user object.
-      // This example does not include role population.
       return session;
     },
   },
-  // You can add custom pages here if needed
-  // pages: {
-  //   signIn: '/auth/signin',
-  // },
 };
 
 const handler = NextAuth(authOptions);

@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 export default function LoginPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const useStubAuth = process.env.NEXT_PUBLIC_STUB_AUTH === 'true';
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -27,7 +28,11 @@ export default function LoginPage() {
   }
 
   const handleLogin = () => {
-    signIn('azure-ad', { callbackUrl: '/dashboard' });
+    if (useStubAuth) {
+      signIn('credentials', { callbackUrl: '/dashboard' });
+    } else {
+      signIn('azure-ad', { callbackUrl: '/dashboard' });
+    }
   };
 
   return (
@@ -39,11 +44,16 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-3xl font-bold font-headline">Welcome</CardTitle>
-          <CardDescription>Sign in with your Office 365 account to continue</CardDescription>
+          <CardDescription>
+            {useStubAuth
+              ? 'Click below to sign in with a mock user'
+              : 'Sign in with your Office 365 account to continue'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <Button onClick={handleLogin} className="w-full text-lg py-6">
-            <LogIn className="mr-2 h-5 w-5" /> Sign in with Office 365
+            <LogIn className="mr-2 h-5 w-5" />
+            {useStubAuth ? 'Sign in as Local Developer' : 'Sign in with Office 365'}
           </Button>
         </CardContent>
         <CardFooter className="flex flex-col items-center space-y-2">
