@@ -57,7 +57,7 @@ const UserMultiSelect = ({ allUsers, selectedUserIds, onChange, disabled = false
                                 <AvatarFallback>{user.name.split(' ').map(n=>n[0]).join('')}</AvatarFallback>
                                 </Avatar>
                                 {user.name}
-                                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); handleDeselect(user.id); }} className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
+                                <span role="button" onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); handleDeselect(user.id); }} className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5 cursor-pointer"><X className="h-3 w-3" /></span>
                             </Badge>
                         )) : (
                             <span className="text-muted-foreground">Select participants...</span>
