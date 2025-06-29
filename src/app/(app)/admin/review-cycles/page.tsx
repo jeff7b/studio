@@ -33,63 +33,61 @@ import {
 // --- Reusable Multi User Select Component ---
 const UserMultiSelect = ({ allUsers, selectedUserIds, onChange, disabled = false }: { allUsers: User[], selectedUserIds: string[], onChange: (ids: string[]) => void, disabled?: boolean }) => {
     const [open, setOpen] = useState(false);
-    const selectedUsersMap = useMemo(() => new Map(allUsers.filter(u => selectedUserIds.includes(u.id)).map(u => [u.id, u])), [allUsers, selectedUserIds]);
+    
+    const selectedUsers = useMemo(() => allUsers.filter(u => selectedUserIds.includes(u.id)), [allUsers, selectedUserIds]);
+    const availableUsers = useMemo(() => allUsers.filter(u => !selectedUserIds.includes(u.id)), [allUsers, selectedUserIds]);
 
     const handleSelect = (userId: string) => {
         onChange([...selectedUserIds, userId]);
-        setOpen(false);
     };
 
     const handleDeselect = (userId: string) => {
         onChange(selectedUserIds.filter(id => id !== userId));
     };
 
-    const availableUsers = allUsers.filter(u => !selectedUserIds.includes(u.id));
-
     return (
-        <div>
-            <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px]">
-                {Array.from(selectedUsersMap.values()).map(user => (
-                    <Badge key={user.id} variant="secondary" className="pl-2">
-                        <Avatar className="h-4 w-4 mr-1">
-                           <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar small" />
-                           <AvatarFallback>{user.name.split(' ').map(n=>n[0]).join('')}</AvatarFallback>
-                        </Avatar>
-                        {user.name}
-                        {!disabled && <button type="button" onClick={() => handleDeselect(user.id)} className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>}
-                    </Badge>
-                ))}
-                {selectedUserIds.length === 0 && <span className="text-sm text-muted-foreground p-1.5">No participants selected.</span>}
-            </div>
-             <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="mt-2" disabled={disabled}>
-                       <PlusCircle className="mr-2 h-4 w-4" /> Add Participant
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
-                    <Command>
-                        <CommandInput placeholder="Search user..." />
-                        <CommandList>
-                            <CommandEmpty>No users found.</CommandEmpty>
-                            <CommandGroup>
-                                {availableUsers.map((user) => (
-                                <CommandItem key={user.id} value={user.name} onSelect={() => handleSelect(user.id)}>
-                                    <div className="flex items-center">
-                                        <Avatar className="h-5 w-5 mr-2">
-                                            <AvatarImage src={user.avatarUrl} alt={user.name} />
-                                            <AvatarFallback>{user.name.split(' ').map(n=>n[0]).join('')}</AvatarFallback>
-                                        </Avatar>
-                                        {user.name}
-                                    </div>
-                                </CommandItem>
-                                ))}
-                            </CommandGroup>
-                        </CommandList>
-                    </Command>
-                </PopoverContent>
-            </Popover>
-        </div>
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild disabled={disabled}>
+                <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-auto min-h-10">
+                    <div className="flex flex-wrap gap-1">
+                        {selectedUsers.length > 0 ? selectedUsers.map(user => (
+                            <Badge key={user.id} variant="secondary" className="pl-2">
+                                <Avatar className="h-4 w-4 mr-1">
+                                <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar small" />
+                                <AvatarFallback>{user.name.split(' ').map(n=>n[0]).join('')}</AvatarFallback>
+                                </Avatar>
+                                {user.name}
+                                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); handleDeselect(user.id); }} className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
+                            </Badge>
+                        )) : (
+                            <span className="text-muted-foreground">Select participants...</span>
+                        )}
+                    </div>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                    <CommandInput placeholder="Search user..." />
+                    <CommandList>
+                        <CommandEmpty>No users found.</CommandEmpty>
+                        <CommandGroup>
+                            {availableUsers.map((user) => (
+                            <CommandItem key={user.id} value={user.name} onSelect={() => handleSelect(user.id)}>
+                                <div className="flex items-center">
+                                    <Avatar className="h-5 w-5 mr-2">
+                                        <AvatarImage src={user.avatarUrl} alt={user.name} />
+                                        <AvatarFallback>{user.name.split(' ').map(n=>n[0]).join('')}</AvatarFallback>
+                                    </Avatar>
+                                    {user.name}
+                                </div>
+                            </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
     );
 };
 
