@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlusCircle, Edit, Trash2, UserCheck, CalendarIcon, Users, Check, ChevronsUpDown, Search } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, UserCheck, CalendarIcon, ChevronsUpDown, Loader2 } from 'lucide-react';
 import type { User, PeerReviewAssignment, Questionnaire } from '@/types';
 import { format } from 'date-fns';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -26,30 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { getActiveQuestionnairesAction } from '../questionnaires/actions';
 import { useToast } from '@/hooks/use-toast';
-
-// Mock Data
-const mockUsers: User[] = [
-  { id: 'u1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'employee', avatarUrl: 'https://placehold.co/40x40.png?text=AW' },
-  { id: 'u2', name: 'Bob The Builder', email: 'bob@example.com', role: 'employee', avatarUrl: 'https://placehold.co/40x40.png?text=BB' },
-  { id: 'u3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'employee', avatarUrl: 'https://placehold.co/40x40.png?text=CB' },
-  { id: 'u4', name: 'Diana Prince', email: 'diana@example.com', role: 'team_leader', avatarUrl: 'https://placehold.co/40x40.png?text=DP' },
-  { id: 'u5', name: 'Edward Scissorhands', email: 'edward@example.com', role: 'employee', avatarUrl: 'https://placehold.co/40x40.png?text=ES' },
-];
-
-const mockAssignments: PeerReviewAssignment[] = [
-  { 
-    id: 'assign1', reviewCycleId: 'cycle1', reviewee: mockUsers[0], reviewer: mockUsers[1], 
-    questionnaireId: 'qnn2-v1', status: 'pending', dueDate: '2024-10-15' 
-  },
-  { 
-    id: 'assign2', reviewCycleId: 'cycle1', reviewee: mockUsers[0], reviewer: mockUsers[2], 
-    questionnaireId: 'qnn2-v1', status: 'in_progress', dueDate: '2024-10-15' 
-  },
-  { 
-    id: 'assign3', reviewCycleId: 'cycle1', reviewee: mockUsers[1], reviewer: mockUsers[0], 
-    questionnaireId: 'qnn_gen-v2', status: 'completed', dueDate: '2024-09-30' 
-  },
-];
+import { getUsersAction } from '../staff/actions';
 
 
 const UserCombobox = ({ users, selectedUser, onSelectUser, placeholder }: { users: User[], selectedUser?: User, onSelectUser: (user?: User) => void, placeholder: string }) => {
@@ -128,6 +105,14 @@ const AssignmentForm = ({ assignment, users, questionnaires, onSave, onCancel }:
       });
       return;
     }
+    if (reviewee.id === reviewer.id) {
+        toast({
+            variant: "destructive",
+            title: "Invalid Assignment",
+            description: "A user cannot be assigned to review themselves.",
+        });
+        return;
+    }
     onSave({
       reviewCycleId: assignment?.reviewCycleId || 'cycle_current', // Default or select cycle
       reviewee,
@@ -139,6 +124,13 @@ const AssignmentForm = ({ assignment, users, questionnaires, onSave, onCancel }:
   };
   
   const availableReviewers = useMemo(() => users.filter(u => u.id !== reviewee?.id), [users, reviewee]);
+
+  useEffect(() => {
+    // When reviewee is selected, if the currently selected reviewer is the same person, clear it.
+    if (reviewee && reviewer && reviewee.id === reviewer.id) {
+      setReviewer(undefined);
+    }
+  }, [reviewee, reviewer]);
 
   return (
      <Card className="w-full max-w-lg mx-auto">
@@ -196,39 +188,48 @@ const AssignmentForm = ({ assignment, users, questionnaires, onSave, onCancel }:
 
 
 export default function AdminAssignmentsPage() {
-  const [assignments, setAssignments] = useState<PeerReviewAssignment[]>(mockAssignments);
+  const [assignments, setAssignments] = useState<PeerReviewAssignment[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [activeQuestionnaires, setActiveQuestionnaires] = useState<Questionnaire[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<PeerReviewAssignment | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchQuestionnaires = async () => {
+    const fetchData = async () => {
       try {
-        const peerQuestionnaires = await getActiveQuestionnairesAction('peer');
+        setIsLoading(true);
+        const [peerQuestionnaires, dbUsers] = await Promise.all([
+            getActiveQuestionnairesAction('peer'),
+            getUsersAction()
+        ]);
         setActiveQuestionnaires(peerQuestionnaires);
+        setUsers(dbUsers);
       } catch (error) {
-        console.error("Failed to fetch active peer questionnaires", error);
+        console.error("Failed to fetch page data", error);
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Could not load questionnaires for assignments."
+          description: "Could not load required data for assignments."
         });
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchQuestionnaires();
+    fetchData();
   }, [toast]);
   
 
   const handleSaveAssignment = (data: Omit<PeerReviewAssignment, 'id'>) => {
     // In a real app, this would be a server action to save to Firestore
     if (editingAssignment) {
-      setAssignments(prev => prev.map(item => item.id === editingAssignment.id ? { ...item, ...data } : item));
+      setAssignments(prev => prev.map(item => item.id === editingAssignment.id ? { ...item, ...data } as PeerReviewAssignment : item));
     } else {
-      setAssignments(prev => [...prev, { ...data, id: Date.now().toString() }]);
+      setAssignments(prev => [...prev, { ...data, id: `assign_${Date.now()}` }]);
     }
-    toast({ title: "Success", description: "Assignment saved." });
+    toast({ title: "Success", description: "Assignment saved. (Client-side only for now)" });
     setIsFormOpen(false);
     setEditingAssignment(undefined);
   };
@@ -246,6 +247,7 @@ export default function AdminAssignmentsPage() {
   const handleDelete = (id: string) => {
     // Add confirmation dialog here
     setAssignments(prev => prev.filter(item => item.id !== id));
+    toast({ title: "Assignment Deleted", description: "Assignment removed. (Client-side only for now)" });
   };
 
   const filteredAssignments = assignments.filter(a => 
@@ -276,7 +278,7 @@ export default function AdminAssignmentsPage() {
       {isFormOpen ? (
          <AssignmentForm 
             assignment={editingAssignment}
-            users={mockUsers}
+            users={users}
             questionnaires={activeQuestionnaires}
             onSave={handleSaveAssignment} 
             onCancel={() => { setIsFormOpen(false); setEditingAssignment(undefined); }}
@@ -285,7 +287,7 @@ export default function AdminAssignmentsPage() {
         <Card className="shadow-lg">
             <CardHeader>
                 <CardTitle>Current Assignments</CardTitle>
-                <CardDescription>Oversee and manage all peer review pairings for the current review cycle.</CardDescription>
+                <CardDescription>Oversee and manage all peer review pairings for the current review cycle. Note: Assignment data is not yet saved to the database.</CardDescription>
                  <Input 
                     placeholder="Search by reviewee or reviewer name..." 
                     value={searchTerm} 
@@ -294,7 +296,11 @@ export default function AdminAssignmentsPage() {
                 />
             </CardHeader>
             <CardContent>
-            {filteredAssignments.length > 0 ? (
+            {isLoading ? (
+                <div className="flex justify-center items-center py-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : filteredAssignments.length > 0 ? (
                 <Table>
                 <TableHeader>
                     <TableRow>
@@ -345,7 +351,7 @@ export default function AdminAssignmentsPage() {
             ) : (
                 <div className="text-center py-10">
                 <UserCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No assignments found or matching your search.</p>
+                <p className="text-muted-foreground">No assignments created yet.</p>
                  <Button className="mt-4" onClick={handleAddNew}>Create First Assignment</Button>
                 </div>
             )}
