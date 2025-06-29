@@ -2,7 +2,8 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  allowedDevOrigins: ['studio.firebase.google.com', '*.cloudworkstations.dev','6000-firebase-studio-1749725579144.cluster-zumahodzirciuujpqvsniawo3o.cloudworkstations.dev', '*.local-origin.dev'],
+  allowedDevOrigins: ['studio.firebase.google.com', '*.cloudworkstations.dev', '*.local-origin.dev'],
+  crossOrigin: 'use-credentials',
   typescript: {
     ignoreBuildErrors: true,
   },

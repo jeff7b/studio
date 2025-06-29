@@ -40,18 +40,19 @@ if (useStubAuth) {
 export const authOptions: NextAuthOptions = {
   providers,
   secret: process.env.AUTH_SECRET || '',
+  ...(useStubAuth && { trustHost: true }),
   callbacks: {
     async jwt({ token, user, account, profile }) {
       // This block runs only on initial sign-in
       if (account && user) {
         // For Azure AD, add access token and user's OID to the token
         if (!useStubAuth && profile) {
-          token.accessToken = account.access_token;
-          token.id = profile.oid;
+          (token as any).accessToken = account.access_token;
+          (token as any).id = (profile as any).oid;
         }
         // For stubbed auth, add the user's ID from the authorize function
         if (useStubAuth) {
-          token.id = user.id;
+          (token as any).id = user.id;
         }
       }
       return token;
@@ -59,11 +60,11 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       // This block runs for every session access
       // Add the custom properties from the token to the session object
-      if (token.accessToken) {
-        (session as any).accessToken = token.accessToken;
+      if ((token as any).accessToken) {
+        (session as any).accessToken = (token as any).accessToken;
       }
-      if (token.id && session.user) {
-        (session.user as any).id = token.id;
+      if ((token as any).id && session.user) {
+        (session.user as any).id = (token as any).id;
       }
       return session;
     },
