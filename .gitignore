@@ -30,6 +30,7 @@ pnpm-debug.log*
 .env.local
 .env.development.local
 .env.production.local
+.env.production
 .env.test.local
 .env
 
@@ -39,3 +40,4 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+*-debug.log
