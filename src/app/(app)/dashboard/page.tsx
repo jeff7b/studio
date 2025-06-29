@@ -47,7 +47,7 @@ const ReviewCard = ({ review }: { review: Review }) => {
       <CardFooter className="flex justify-end space-x-2">
         {(review.status === 'draft' || review.status === 'pending_submission') && (
           <Button asChild variant="default" size="sm">
-            <Link href={review.type === 'self' ? `/reviews/self/${review.id}/edit` : `/reviews/peer/${review.id}/submit`}>
+            <Link href={review.type === 'self' ? `/reviews/self/${review.id}/edit` : `/reviews/peer/${review.id}`}>
               {review.status === 'draft' ? <Edit3 className="mr-2 h-4 w-4" /> : <FileText className="mr-2 h-4 w-4" />}
               {review.status === 'draft' ? 'Edit Review' : 'Start/Edit Review'}
             </Link>
