@@ -11,30 +11,44 @@ import { revalidatePath } from 'next/cache';
  * @returns A promise that resolves to an array of the latest Questionnaire objects.
  */
 export async function getLatestQuestionnairesAction(): Promise<Questionnaire[]> {
-  const snapshot = await adminDb.collection('questionnaires').get();
-  if (snapshot.empty) {
-    return [];
-  }
-
-  // Firestore timestamps need to be converted to serializable format (ISO string)
-  const allQuestionnaires: Questionnaire[] = snapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      ...data,
-      createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-      updatedAt: (data.updatedAt as Timestamp).toDate().toISOString(),
-    } as Questionnaire;
-  });
-
-  const latestVersions = new Map<string, Questionnaire>();
-
-  for (const q of allQuestionnaires) {
-    if (!latestVersions.has(q.templateId) || q.version > latestVersions.get(q.templateId)!.version) {
-      latestVersions.set(q.templateId, q);
+  try {
+    const snapshot = await adminDb.collection('questionnaires').get();
+    if (snapshot.empty) {
+      return [];
     }
-  }
 
-  return Array.from(latestVersions.values()).sort((a, b) => a.name.localeCompare(b.name));
+    // Firestore timestamps need to be converted to serializable format (ISO string)
+    const allQuestionnaires: Questionnaire[] = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+        updatedAt: (data.updatedAt as Timestamp).toDate().toISOString(),
+      } as Questionnaire;
+    });
+
+    const latestVersions = new Map<string, Questionnaire>();
+
+    for (const q of allQuestionnaires) {
+      if (!latestVersions.has(q.templateId) || q.version > latestVersions.get(q.templateId)!.version) {
+        latestVersions.set(q.templateId, q);
+      }
+    }
+
+    return Array.from(latestVersions.values()).sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error: any) {
+    if (error.code === 5) { // 5 is NOT_FOUND
+      console.error(
+        "Firestore error (NOT_FOUND): Could not find the 'questionnaires' collection. " +
+        "Please make sure you have created a Firestore database in your Firebase project. " +
+        "Returning an empty array for now."
+      );
+      return []; // Gracefully return an empty array to prevent the page from crashing.
+    }
+    // For other errors, re-throw them.
+    console.error("An unexpected error occurred while fetching questionnaires:", error);
+    throw error;
+  }
 }
 
 /**
@@ -43,24 +57,38 @@ export async function getLatestQuestionnairesAction(): Promise<Questionnaire[]> 
  * @returns A promise that resolves to an array of active Questionnaire objects.
  */
 export async function getActiveQuestionnairesAction(type: 'self' | 'peer'): Promise<Questionnaire[]> {
-    const snapshot = await adminDb.collection('questionnaires')
-        .where('isActive', '==', true)
-        .where('type', '==', type)
-        .orderBy('name', 'asc')
-        .get();
+    try {
+      const snapshot = await adminDb.collection('questionnaires')
+          .where('isActive', '==', true)
+          .where('type', '==', type)
+          .orderBy('name', 'asc')
+          .get();
 
-    if (snapshot.empty) {
-        return [];
+      if (snapshot.empty) {
+          return [];
+      }
+
+      return snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            ...data,
+            createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+            updatedAt: (data.updatedAt as Timestamp).toDate().toISOString(),
+          } as Questionnaire;
+      });
+    } catch (error: any) {
+       if (error.code === 5) { // 5 is NOT_FOUND
+        console.error(
+          "Firestore error (NOT_FOUND) while querying active questionnaires. " +
+          "This might mean Firestore is not set up correctly, or you are missing a composite index for this query. " +
+          "Check the detailed error logs for a link to create the index. Returning an empty array."
+        );
+        return []; // Gracefully return an empty array.
+      }
+      // For other errors, re-throw them.
+      console.error(`An unexpected error occurred while fetching active ${type} questionnaires:`, error);
+      throw error;
     }
-
-    return snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          ...data,
-          createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-          updatedAt: (data.updatedAt as Timestamp).toDate().toISOString(),
-        } as Questionnaire;
-    });
 }
 
 
