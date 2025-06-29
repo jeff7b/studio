@@ -24,11 +24,6 @@ export function SiteHeader() {
         </Link>
         
         <div className="flex flex-1 items-center justify-end space-x-2">
-          {isLoggedIn && (
-            <div className="hidden md:flex">
-               <MainNav /> {/* MainNav might need role-based logic from session eventually */}
-            </div>
-          )}
           <ModeToggle />
           {isLoggedIn && session?.user ? (
             <UserNav /> // UserNav now internally uses useSession
