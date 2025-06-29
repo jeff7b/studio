@@ -37,7 +37,7 @@ export async function getLatestQuestionnairesAction(): Promise<Questionnaire[]> 
       }
     }
 
-    return Array.from(latestVersions.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(latestVersions.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   } catch (error: any) {
     if (error.code === 5) { // 5 is NOT_FOUND
       console.error(
