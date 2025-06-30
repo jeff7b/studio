@@ -81,11 +81,18 @@ export async function getActiveQuestionnairesAction(type: 'self' | 'peer'): Prom
           } as Questionnaire;
       });
     } catch (error: any) {
+       if (error.code === 9) { // 9 is FAILED_PRECONDITION for missing index
+        console.error(
+          "Firestore error: The query for active questionnaires requires a composite index. " +
+          "Please check the error details below for a link to create it in your Firebase console.",
+          error
+        );
+        return [];
+      }
        if (error.code === 5) { // 5 is NOT_FOUND
         console.error(
           "Firestore error (NOT_FOUND) while querying active questionnaires. " +
-          "This might mean Firestore is not set up correctly, or you are missing a composite index for this query. " +
-          "Check the detailed error logs for a link to create the index. Returning an empty array."
+          "This might mean the 'questionnaires' collection does not exist. Returning an empty array."
         );
         return []; // Gracefully return an empty array.
       }

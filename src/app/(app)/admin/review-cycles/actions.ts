@@ -84,9 +84,9 @@ export async function getActiveReviewCyclesAction(): Promise<ReviewCycle[]> {
     } catch (error: any) {
        if (error.code === 9) { // 9 is FAILED_PRECONDITION for missing index
         console.error(
-          "Firestore error: Missing composite index for 'review-cycles' query. " +
-          "Please check the Firebase console logs for a link to create the required index. " +
-          "Returning an empty array for now."
+          "Firestore error: The query for active review cycles requires a composite index. " +
+          "Please check the error details below for a link to create it in your Firebase console.",
+          error
         );
         return [];
       }
